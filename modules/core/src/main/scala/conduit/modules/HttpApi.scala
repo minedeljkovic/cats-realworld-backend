@@ -10,6 +10,8 @@ import scala.concurrent.duration._
 import conduit.domain.user._
 import conduit.http.routes._
 import conduit.http.routes.secured._
+import conduit.http.routes.optsecured._
+import conduit.ext.OptionalJwtAuthMiddleware
 
 object HttpApi {
   def make[F[_]: Concurrent: Timer](
@@ -31,6 +33,9 @@ final class HttpApi[F[_]: Concurrent: Timer] private (
   private val usersMiddleware =
     JwtAuthMiddleware[F, User](security.userJwtAuth.value, security.auth.findUser)
 
+  private val optionUsersMiddleware =
+    OptionalJwtAuthMiddleware[F, User](security.userJwtAuth.value, security.auth.findUser)
+
   // Auth routes
   private val loginRoutes = new LoginRoutes[F](security.auth).routes
   private val usersRoutes = new UsersRoutes[F](security.auth).routes
@@ -42,9 +47,13 @@ final class HttpApi[F[_]: Concurrent: Timer] private (
   private val userRoutes     = new UserRoutes[F](security.auth).routes(usersMiddleware)
   private val profilesRoutes = new ProfilesRoutes[F](algebras.profiles).routes(usersMiddleware)
 
+  // Optionally secured routes
+  private val articlesRoutes =
+    new ArticlesRoutes[F](algebras.articles).routes(optionUsersMiddleware)
+
   // Combining all the http routes
   private val routes: HttpRoutes[F] =
-    healthRoutes <+> loginRoutes <+> usersRoutes <+> userRoutes <+> profilesRoutes
+    healthRoutes <+> loginRoutes <+> usersRoutes <+> userRoutes <+> profilesRoutes <+> articlesRoutes
 
   private val middleware: HttpRoutes[F] => HttpRoutes[F] = {
     { http: HttpRoutes[F] =>

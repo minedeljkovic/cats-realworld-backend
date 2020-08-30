@@ -1,11 +1,13 @@
 package conduit.domain
 
+import cats.kernel.Eq
 import io.estatico.newtype.macros.newtype
 import conduit.domain.user._
 
 object profile {
 
   @newtype case class FollowingStatus(value: Boolean)
+  implicit val eqFollowingStatus = Eq.fromUniversalEquals[FollowingStatus]
 
   case class Profile(
       username: UserName,

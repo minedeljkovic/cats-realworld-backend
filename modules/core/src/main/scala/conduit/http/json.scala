@@ -9,6 +9,7 @@ import io.estatico.newtype.Coercible
 import io.estatico.newtype.ops._
 import org.http4s.EntityEncoder
 import org.http4s.circe.jsonEncoderOf
+import conduit.domain.article._
 import conduit.domain.user._
 import conduit.domain.profile._
 import conduit.domain.healthcheck._
@@ -55,5 +56,13 @@ private[http] trait JsonCodecs {
 
   implicit val profileEncoder: Encoder[Profile]                 = deriveEncoder[Profile]
   implicit val profileResponseEncoder: Encoder[ProfileResponse] = deriveEncoder[ProfileResponse]
+
+  implicit val createArticleParamDecoder: Decoder[CreateArticleParam]     = deriveDecoder[CreateArticleParam]
+  implicit val createArticleRequestDecoder: Decoder[CreateArticleRequest] = deriveDecoder[CreateArticleRequest]
+
+  implicit val authorEncoder: Encoder[Author]                     = deriveEncoder[Author]
+  implicit val articleEncoder: Encoder[Article]                   = deriveEncoder[Article]
+  implicit val articleResponseEncoder: Encoder[ArticleResponse]   = deriveEncoder[ArticleResponse]
+  implicit val articlesResponseEncoder: Encoder[ArticlesResponse] = deriveEncoder[ArticlesResponse]
 
 }
