@@ -24,7 +24,24 @@ final class ArticlesRoutes[F[_]: Defer: JsonDecoder: MonadThrow](
   object LimitQueryParam extends OptionalQueryParamDecoderMatcher[LimitParam]("limit")
   object OffsetQueryParam extends OptionalQueryParamDecoderMatcher[OffsetParam]("offset")
 
+  object ArticleTagQueryParam extends OptionalQueryParamDecoderMatcher[ArticleTagParam]("tag")
+  object AuthorQueryParam extends OptionalQueryParamDecoderMatcher[UserNameParam]("author")
+  object FavoritedQueryParam extends OptionalQueryParamDecoderMatcher[UserNameParam]("favorited")
+
   private val httpRoutes: AuthedRoutes[Option[User], F] = AuthedRoutes.of {
+
+    case GET -> Root :? ArticleTagQueryParam(tag) :? AuthorQueryParam(author) :?
+            FavoritedQueryParam(favorited) :? LimitQueryParam(limit) :? OffsetQueryParam(offset) as optUser =>
+      articles
+        .filter(optUser.map(_.id))(
+          ArticleCriteria(tag.map(_.toDomain), author.map(_.toDomain), favorited.map(_.toDomain)),
+          limit.map(_.toDomain),
+          offset.map(_.toDomain)
+        )
+        .flatMap {
+          case (articles, count) =>
+            Ok(ArticlesResponse(articles, count))
+        }
 
     case GET -> Root / "feed" :? LimitQueryParam(limit) :? OffsetQueryParam(offset) as optUser =>
       optUser.fold(Forbidden("not authenticated")) { user =>

@@ -22,6 +22,11 @@ trait Articles[F[_]] {
   def create(userId: UserId)(article: NewArticle, tagList: List[ArticleTag]): F[Article]
   def delete(userId: UserId)(slug: Slug): F[Unit]
   def feed(userId: UserId)(limit: Option[Limit], offset: Option[Offset]): F[(List[Article], ArticlesCount)]
+  def filter(userId: Option[UserId])(
+      criteria: ArticleCriteria,
+      limit: Option[Limit],
+      offset: Option[Offset]
+  ): F[(List[Article], ArticlesCount)]
 }
 
 object LiveArticles {
@@ -68,15 +73,8 @@ final class LiveArticles[F[_]: Sync: GenUUID: Clock] private (
 
   def find(userId: Option[UserId])(slug: Slug): F[Option[Article]] =
     sessionPool.use { session =>
-      userId match {
-        case Some(id) =>
-          session.prepare(selectArticleForUserBySlug).use { q =>
-            joinedToList(q.stream(id ~ slug, 64)).map(_.headOption)
-          }
-        case None =>
-          session.prepare(selectArticleBySlug).use { q =>
-            joinedToList(q.stream(slug, 64)).map(_.headOption)
-          }
+      session.prepare(selectArticleBySlug).use { q =>
+        joinedToList(q.stream(userId ~ slug, 64)).map(_.headOption)
       }
     }
 
@@ -155,13 +153,32 @@ final class LiveArticles[F[_]: Sync: GenUUID: Clock] private (
     sessionPool.use { session =>
       (
         // it's to complex for me to do this in one query
-        session.prepare(selectArticleFollwedByUser),
-        session.prepare(countArticleFollwedByUser)
+        session.prepare(selectArticleFollowedByUser),
+        session.prepare(countArticleFollowedByUser)
       ).tupled.use {
         case (query, countQuery) =>
           for {
-            list <- joinedToList(query.stream(userId ~ (limit ~ offset), 64))
+            list <- joinedToList(query.stream(userId ~ limit ~ offset, 64))
             count <- countQuery.unique(userId)
+          } yield (list, count)
+      }
+    }
+
+  def filter(userId: Option[UserId])(
+      criteria: ArticleCriteria,
+      limit: Option[Limit],
+      offset: Option[Offset]
+  ): F[(List[Article], ArticlesCount)] =
+    sessionPool.use { session =>
+      (
+        // it's to complex for me to do this in one query
+        session.prepare(selectArticleByCriteria),
+        session.prepare(countArticleByCriteria)
+      ).tupled.use {
+        case (query, countQuery) =>
+          for {
+            list <- joinedToList(query.stream(userId ~ criteria ~ limit ~ offset, 64))
+            count <- countQuery.unique(criteria)
           } yield (list, count)
       }
     }
@@ -170,43 +187,33 @@ final class LiveArticles[F[_]: Sync: GenUUID: Clock] private (
 
 private object ArticleQueries {
 
-  private val selectArticle: Fragment[Void] =
-    sql"""
-        SELECT a.uuid, a.slug, a.title, a.description, a.body, a.created_at, a.updated_at,
-               false as favorited,
-               (SELECT COUNT(*) FROM favorites f WHERE f.article_id = a.uuid) as favorites_count,
-               au.username, au.bio, au.image,
-               false as following,
-               t.tag
-       """
-
-  private val selectArticleForUser: Fragment[UserId] =
+  private val selectArticle: Fragment[Option[UserId]] =
     sql"""
         SELECT a.uuid, a.slug, a.title, a.description, a.body, a.created_at, a.updated_at,
                CASE
-                 WHEN EXISTS (
+                 WHEN (${uuid.cimap[UserId].opt} IS NOT NULL AND EXISTS (
                    SELECT *
                    FROM favorites
-                   WHERE user_id = ${uuid.cimap[UserId]}
-                 ) THEN true
+                   WHERE user_id = ${uuid.cimap[UserId].opt}
+                 )) THEN true
                  ELSE false
                END as favorited,
                (SELECT COUNT(*) FROM favorites f WHERE f.article_id = a.uuid) as favorites_count,
                au.username, au.bio, au.image,
                CASE
-                 WHEN EXISTS (
+                 WHEN (${uuid.cimap[UserId].opt} IS NOT NULL AND EXISTS (
                    SELECT * FROM followers
-                   WHERE follower_id = ${uuid.cimap[UserId]}
+                   WHERE follower_id = ${uuid.cimap[UserId].opt}
                      AND followed_id = au.uuid
-                 ) THEN true
+                 )) THEN true
                  ELSE false
                END as following,
                t.tag
-       """.contramap(id => id ~ id)
+       """.contramap(id => id ~ id ~ id ~ id)
 
-  val selectCount: Fragment[Void] = sql"""SELECT COUNT(DISTINCT a.uuid)"""
+  private val selectCount: Fragment[Void] = sql"""SELECT COUNT(DISTINCT a.uuid)"""
 
-  val fromArticle: Fragment[Void] =
+  private val fromArticle: Fragment[Void] =
     sql"""
         FROM Articles a
         JOIN users au on au.uuid = a.author_id
@@ -225,23 +232,14 @@ private object ArticleQueries {
 
   private val slugEquals: Fragment[Slug] = sql"""slug = ${varchar.cimap[Slug]}"""
 
-  private val orderMostRecent: Fragment[Void] = sql"""ORDER BY a.updated_at DESC"""
-
-  val selectArticleBySlug: Query[Slug, SelectArticleResult ~ Option[ArticleTag]] =
+  val selectArticleBySlug: Query[Option[UserId] ~ Slug, SelectArticleResult ~ Option[ArticleTag]] =
     sql"""
       $selectArticle
       $fromArticle
       WHERE $slugEquals
     """.query(selectArticleResultCodec ~ varchar.cimap[ArticleTag].opt)
 
-  val selectArticleForUserBySlug: Query[UserId ~ Slug, SelectArticleResult ~ Option[ArticleTag]] =
-    sql"""
-      $selectArticleForUser
-      $fromArticle
-      WHERE $slugEquals
-    """.query(selectArticleResultCodec ~ varchar.cimap[ArticleTag].opt)
-
-  val followedByUser: Fragment[UserId] =
+  private val followedByUser: Fragment[UserId] =
     sql"""
         EXISTS (
           SELECT * FROM followers
@@ -250,26 +248,91 @@ private object ArticleQueries {
         )
       """
 
-  val selectArticleFollwedByUser
-      : Query[UserId ~ (Option[Limit] ~ Option[Offset]), SelectArticleResult ~ Option[ArticleTag]] =
+  private val limitOffsetOrderMostRecent: Fragment[Option[Limit] ~ Option[Offset]] =
+    limitOffset(sql"""ORDER BY a.updated_at DESC""").contramap {
+      case l ~ o => (Void ~ l.orElse(Some(Limit(20))) ~ o.orElse(Some(Offset(0))))
+    }
+
+  val selectArticleFollowedByUser
+      : Query[UserId ~ Option[Limit] ~ Option[Offset], SelectArticleResult ~ Option[ArticleTag]] =
     sql"""
-        $selectArticleForUser
+        $selectArticle
         $fromArticle
         WHERE $followedByUser
-        ${limitOffset(orderMostRecent)}
+        $limitOffsetOrderMostRecent
         """
       .query(selectArticleResultCodec ~ varchar.cimap[ArticleTag].opt)
       .contramap {
-        case id ~ (l ~ o) => id ~ id ~ (Void ~ l ~ o)
+        case id ~ l ~ o => Some(id) ~ id ~ (l ~ o)
       }
 
-  val countArticleFollwedByUser: Query[UserId, ArticlesCount] =
+  val countArticleFollowedByUser: Query[UserId, ArticlesCount] =
     sql"""
         $selectCount
-        $fromArticle
+        FROM Articles a
         WHERE $followedByUser
         """
       .query(int8.cimap[ArticlesCount])
+
+  private val byTag: Fragment[Option[ArticleTag]] =
+    sql"""
+      ${varchar.cimap[ArticleTag].opt} IS NULL OR EXISTS (
+                                                    SELECT * FROM article_tags
+                                                    WHERE tag = ${varchar.cimap[ArticleTag].opt}
+                                                  )
+    """.contramap { o =>
+      o ~ o
+    }
+
+  private val byAuthor: Fragment[Option[UserName]] =
+    sql"""
+      ${varchar.cimap[UserName].opt} IS NULL OR au.username = ${varchar.cimap[UserName].opt}
+    """.contramap { o =>
+      o ~ o
+    }
+
+  private val byFavoritingUser: Fragment[Option[UserName]] =
+    sql"""
+      ${varchar.cimap[UserName].opt} IS NULL OR EXISTS (
+                                                    SELECT *
+                                                    FROM favorites f
+                                                    JOIN users u ON u.uuid = f.user_id
+                                                    WHERE u.username = ${varchar.cimap[UserName].opt}
+                                                  )
+    """.contramap { o =>
+      o ~ o
+    }
+
+  val selectArticleByCriteria: Query[
+    Option[UserId] ~ ArticleCriteria ~ Option[Limit] ~ Option[Offset],
+    SelectArticleResult ~ Option[ArticleTag]
+  ] =
+    sql"""
+      $selectArticle
+      $fromArticle
+      WHERE ($byTag)
+      AND ($byAuthor)
+      AND ($byFavoritingUser)
+      $limitOffsetOrderMostRecent
+    """
+      .query(selectArticleResultCodec ~ varchar.cimap[ArticleTag].opt)
+      .contramap {
+        case i ~ ArticleCriteria(t, a, f) ~ o ~ l => i ~ t ~ a ~ f ~ (o ~ l)
+      }
+
+  val countArticleByCriteria: Query[ArticleCriteria, ArticlesCount] =
+    sql"""
+      $selectCount
+      FROM Articles a
+      JOIN users au on au.uuid = a.author_id
+      WHERE ($byTag)
+      AND ($byAuthor)
+      AND ($byFavoritingUser)
+    """
+      .query(int8.cimap[ArticlesCount])
+      .contramap {
+        case ArticleCriteria(t, a, f) => t ~ a ~ f
+      }
 
   val insertArticle: Command[ArticleId ~ Slug ~ NewArticle ~ UserId ~ CreateDateTime ~ UpdateDateTime] =
     sql"""

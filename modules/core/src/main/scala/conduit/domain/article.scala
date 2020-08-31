@@ -130,4 +130,15 @@ object article {
 
   case class CurrentUserNotAuthor(authorId: UserId) extends NoStackTrace
 
+  // --------- filter articlea -----------
+
+  @newtype case class ArticleTagParam(value: NonEmptyString) {
+    def toDomain: ArticleTag = ArticleTag(value.value.toLowerCase)
+  }
+
+  case class ArticleCriteria(
+      tag: Option[ArticleTag],
+      author: Option[UserName],
+      favoritingUser: Option[UserName]
+  )
 }
