@@ -20,13 +20,14 @@ import java.time.ZoneOffset
 trait Articles[F[_]] {
   def find(userId: Option[UserId])(slug: Slug): F[Option[Article]]
   def create(userId: UserId)(article: NewArticle, tagList: List[ArticleTag]): F[Article]
-  def delete(userId: UserId)(slug: Slug): F[Unit]
+  def delete(userId: UserId)(slug: Slug): F[Option[Unit]]
   def feed(userId: UserId)(limit: Option[Limit], offset: Option[Offset]): F[(List[Article], ArticlesCount)]
   def filter(userId: Option[UserId])(
       criteria: ArticleCriteria,
       limit: Option[Limit],
       offset: Option[Offset]
   ): F[(List[Article], ArticlesCount)]
+  def update(userId: UserId)(slug: Slug)(article: UpdateArticle): F[Option[Article]]
 }
 
 object LiveArticles {
@@ -47,10 +48,11 @@ final class LiveArticles[F[_]: Sync: GenUUID: Clock] private (
     s.groupAdjacentBy(_._1)
       .map {
         case (
-            _ ~ slug ~ title ~ description ~ body ~ createdAt ~ updatedAt ~ favorited ~ favoritesCount ~ username ~ bio ~ image ~ following,
+            uuid ~ slug ~ title ~ description ~ body ~ createdAt ~ updatedAt ~ favorited ~ favoritesCount ~ userId ~ username ~ bio ~ image ~ following,
             tags
             ) =>
           Article(
+            uuid,
             slug,
             title,
             description,
@@ -61,6 +63,7 @@ final class LiveArticles[F[_]: Sync: GenUUID: Clock] private (
             favorited,
             favoritesCount,
             Author(
+              userId,
               username,
               bio,
               image,
@@ -107,6 +110,7 @@ final class LiveArticles[F[_]: Sync: GenUUID: Clock] private (
                     } else ().pure[F]
                 username ~ bio ~ image <- selectUserQuery.unique(userId)
               } yield Article(
+                id,
                 slug,
                 article.title,
                 article.description,
@@ -117,6 +121,7 @@ final class LiveArticles[F[_]: Sync: GenUUID: Clock] private (
                 FavoritedStatus(false), // created article cannot be favorited by user...
                 FavoritesCount(0), // ... nor have any favorites at all
                 Author(
+                  userId,
                   username,
                   bio,
                   image,
@@ -128,7 +133,7 @@ final class LiveArticles[F[_]: Sync: GenUUID: Clock] private (
       }
     }
 
-  def delete(userId: UserId)(slug: Slug): F[Unit] =
+  def delete(userId: UserId)(slug: Slug): F[Option[Unit]] =
     sessionPool.use { session =>
       (
         session.prepare(selectArticleIdAndAuthorId),
@@ -136,15 +141,16 @@ final class LiveArticles[F[_]: Sync: GenUUID: Clock] private (
         session.prepare(deleteArticle)
       ).tupled.use {
         case (selectArticleQuery, deleteArticleTagsCmd, deleteArticleCmd) =>
-          selectArticleQuery.unique(slug).flatMap {
-            case id ~ authorId if authorId == userId =>
+          selectArticleQuery.option(slug).flatMap {
+            case Some(id ~ authorId) if authorId == userId =>
               for {
                 _ <- deleteArticleTagsCmd.execute(id)
                 _ <- deleteArticleCmd.execute(id)
                 // TODO: handle favorites and comments existence
-              } yield ()
-            case _ ~ authorId =>
-              CurrentUserNotAuthor(authorId).raiseError[F, Unit]
+              } yield Some(())
+            case Some(_ ~ authorId) =>
+              CurrentUserNotAuthor(authorId).raiseError[F, Option[Unit]]
+            case None => none[Unit].pure[F]
           }
       }
     }
@@ -183,6 +189,43 @@ final class LiveArticles[F[_]: Sync: GenUUID: Clock] private (
       }
     }
 
+  def update(userId: UserId)(slug: Slug)(a: UpdateArticle): F[Option[Article]] =
+    sessionPool.use { session =>
+      (
+        session.prepare(selectArticleBySlug),
+        session.prepare(updateArticle)
+      ).tupled.use {
+        case (selectArticleQuery, updateArticleCmd) =>
+          joinedToList(selectArticleQuery.stream(Some(userId) ~ slug, 64)).map(_.headOption).flatMap {
+            case Some(article) if article.author.uuid == userId =>
+              for {
+                nowDateTime <- now
+                // change slug if title is changed
+                slug = a.title.map(_.toSlug())
+                // change  updatedAt if anything is changed
+                updatedAt = (a.title orElse a.description orElse a.body).map(_ => UpdateDateTime(nowDateTime))
+                _ <- updateArticleCmd
+                      .execute(slug ~ a.title ~ a.description ~ a.body ~ updatedAt ~ article.uuid)
+                      .handleErrorWith {
+                        case SqlState.UniqueViolation(e) if e.constraintName == Some("unq_slug") =>
+                          SlugInUse(slug.get).raiseError[F, Completion]
+                      }
+              } yield Some(
+                article.copy(
+                  slug = slug.getOrElse(article.slug),
+                  title = a.title.getOrElse(article.title),
+                  description = a.description.getOrElse(article.description),
+                  body = a.body.getOrElse(article.body),
+                  updatedAt = updatedAt.getOrElse(article.updatedAt)
+                )
+              )
+            case Some(article) =>
+              CurrentUserNotAuthor(article.author.uuid).raiseError[F, Option[Article]]
+            case None => none[Article].pure[F]
+          }
+      }
+    }
+
 }
 
 private object ArticleQueries {
@@ -199,7 +242,7 @@ private object ArticleQueries {
                  ELSE false
                END as favorited,
                (SELECT COUNT(*) FROM favorites f WHERE f.article_id = a.uuid) as favorites_count,
-               au.username, au.bio, au.image,
+               au.uuid, au.username, au.bio, au.image,
                CASE
                  WHEN (${uuid.cimap[UserId].opt} IS NOT NULL AND EXISTS (
                    SELECT * FROM followers
@@ -222,12 +265,12 @@ private object ArticleQueries {
 
   type SelectArticleResult =
     ArticleId ~ Slug ~ Title ~ Description ~ Body ~ CreateDateTime ~ UpdateDateTime ~ FavoritedStatus ~
-        FavoritesCount ~ UserName ~ Option[Bio] ~ Option[Image] ~ FollowingStatus
+        FavoritesCount ~ UserId ~ UserName ~ Option[Bio] ~ Option[Image] ~ FollowingStatus
 
   private val selectArticleResultCodec: Codec[SelectArticleResult] =
     uuid.cimap[ArticleId] ~ varchar.cimap[Slug] ~ varchar.cimap[Title] ~ varchar.cimap[Description] ~
         varchar.cimap[Body] ~ timestamptz(3).cimap[CreateDateTime] ~ timestamptz(3).cimap[UpdateDateTime] ~
-        bool.cimap[FavoritedStatus] ~ int8.cimap[FavoritesCount] ~ varchar.cimap[UserName] ~
+        bool.cimap[FavoritedStatus] ~ int8.cimap[FavoritesCount] ~ uuid.cimap[UserId] ~ varchar.cimap[UserName] ~
         varchar.cimap[Bio].opt ~ varchar.cimap[Image].opt ~ bool.cimap[FollowingStatus]
 
   private val slugEquals: Fragment[Slug] = sql"""slug = ${varchar.cimap[Slug]}"""
@@ -377,4 +420,16 @@ private object ArticleQueries {
         WHERE article_id = ${uuid.cimap[ArticleId]}
        """.command
 
+  val updateArticle: Command[
+    Option[Slug] ~ Option[Title] ~ Option[Description] ~ Option[Body] ~ Option[UpdateDateTime] ~ ArticleId
+  ] =
+    sql"""
+        UPDATE articles a
+        SET slug           = coalesce(${varchar.cimap[Slug].opt}, a.slug),
+            title          = coalesce(${varchar.cimap[Title].opt}, a.title),
+            description    = coalesce(${varchar.cimap[Description].opt}, a.description),
+            body           = coalesce(${varchar.cimap[Body].opt}, a.body),
+            updated_at     = coalesce(${timestamptz(3).cimap[UpdateDateTime].opt}, a.updated_at)
+        WHERE uuid = ${uuid.cimap[ArticleId]}
+       """.command
 }

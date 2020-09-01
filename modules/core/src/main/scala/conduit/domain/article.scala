@@ -44,6 +44,7 @@ object article {
   )
 
   case class Author(
+      uuid: UserId,
       username: UserName,
       bio: Option[Bio],
       image: Option[Image],
@@ -51,6 +52,7 @@ object article {
   )
 
   case class Article(
+      uuid: ArticleId,
       slug: Slug,
       title: Title,
       description: Description,
@@ -118,7 +120,7 @@ object article {
         body.map(b => Body(b.value.value))
       )
   }
-  case class UpdateArticleRequest(user: UpdateArticleParam)
+  case class UpdateArticleRequest(article: UpdateArticleParam)
 
   case class UpdateArticle(
       title: Option[Title],

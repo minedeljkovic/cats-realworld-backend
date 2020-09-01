@@ -84,11 +84,31 @@ final class ArticlesRoutes[F[_]: Defer: JsonDecoder: MonadThrow](
       optUser.fold(Forbidden("not authenticated")) { user =>
         articles
           .delete(user.id)(Slug(slug))
-          .flatMap { _ =>
-            Ok(())
+          .flatMap {
+            case Some(unit) => Ok(unit)
+            case None       => NotFound(s"Article not found for slug: $slug")
           }
           .recoverWith {
             case _: CurrentUserNotAuthor => Forbidden("not author")
+          }
+      }
+
+    case ar @ PUT -> Root / slug as optUser =>
+      optUser.fold(Forbidden("not authenticated")) { user =>
+        ar.req
+          .asJsonDecode[UpdateArticleRequest]
+          .flatMap {
+            case UpdateArticleRequest(updateArticle) =>
+              articles
+                .update(user.id)(Slug(slug))(updateArticle.toDomain)
+                .flatMap {
+                  case Some(article) => Ok(ArticleResponse(article))
+                  case None          => NotFound(s"Article not found for slug: $slug")
+                }
+          }
+          .recoverWith {
+            case _: CurrentUserNotAuthor => Forbidden("not author")
+            case SlugInUse(u)            => Conflict(u.value)
           }
       }
 

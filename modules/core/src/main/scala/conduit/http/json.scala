@@ -60,9 +60,14 @@ private[http] trait JsonCodecs {
   implicit val createArticleParamDecoder: Decoder[CreateArticleParam]     = deriveDecoder[CreateArticleParam]
   implicit val createArticleRequestDecoder: Decoder[CreateArticleRequest] = deriveDecoder[CreateArticleRequest]
 
-  implicit val authorEncoder: Encoder[Author]                     = deriveEncoder[Author]
-  implicit val articleEncoder: Encoder[Article]                   = deriveEncoder[Article]
+  implicit val authorEncoder: Encoder[Author] = deriveEncoder[Author]
+
+  implicit val articleEncoder: Encoder[Article] = deriveEncoder[Article]
+
   implicit val articleResponseEncoder: Encoder[ArticleResponse]   = deriveEncoder[ArticleResponse]
   implicit val articlesResponseEncoder: Encoder[ArticlesResponse] = deriveEncoder[ArticlesResponse]
+
+  implicit val updateArticleParamDecoder: Decoder[UpdateArticleParam]     = deriveDecoder[UpdateArticleParam]
+  implicit val updateArticleRequestDecoder: Decoder[UpdateArticleRequest] = deriveDecoder[UpdateArticleRequest]
 
 }
