@@ -53,3 +53,19 @@ CREATE TABLE favorites (
     ON UPDATE NO ACTION ON DELETE NO ACTION,
   UNIQUE (article_id, user_id)
 );
+
+CREATE TABLE comments (
+  article_id UUID NOT NULL,
+  id int4 NOT NULL,
+  body VARCHAR NOT NULL,
+  author_id UUID NOT NULL,
+  created_at timestamptz(3) NOT NULL,
+  updated_at timestamptz(3) NOT NULL,
+  CONSTRAINT article_id_fkey FOREIGN KEY (article_id)
+    REFERENCES articles (uuid) MATCH SIMPLE
+    ON UPDATE NO ACTION ON DELETE NO ACTION,
+  CONSTRAINT author_id_fkey FOREIGN KEY (author_id)
+    REFERENCES users (uuid) MATCH SIMPLE
+    ON UPDATE NO ACTION ON DELETE NO ACTION,
+  UNIQUE (article_id, id)
+);

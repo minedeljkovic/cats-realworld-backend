@@ -14,6 +14,7 @@ import conduit.domain.user._
 import conduit.domain.profile._
 import conduit.domain.healthcheck._
 import conduit.domain.tag._
+import conduit.domain.comment._
 
 object json extends JsonCodecs {
   implicit def deriveEntityEncoder[F[_]: Applicative, A: Encoder]: EntityEncoder[F, A] = jsonEncoderOf[F, A]
@@ -72,5 +73,15 @@ private[http] trait JsonCodecs {
   implicit val updateArticleRequestDecoder: Decoder[UpdateArticleRequest] = deriveDecoder[UpdateArticleRequest]
 
   implicit val tagsResponseEncoder: Encoder[TagsResponse] = deriveEncoder[TagsResponse]
+
+  implicit val createCommentParamDecoder: Decoder[CreateCommentParam]     = deriveDecoder[CreateCommentParam]
+  implicit val createCommentRequestDecoder: Decoder[CreateCommentRequest] = deriveDecoder[CreateCommentRequest]
+
+  implicit val commentAuthorEncoder: Encoder[CommentAuthor] = deriveEncoder[CommentAuthor]
+
+  implicit val commentEncoder: Encoder[Comment] = deriveEncoder[Comment]
+
+  implicit val commentResponseEncoder: Encoder[CommentResponse]   = deriveEncoder[CommentResponse]
+  implicit val commentsResponseEncoder: Encoder[CommentsResponse] = deriveEncoder[CommentsResponse]
 
 }

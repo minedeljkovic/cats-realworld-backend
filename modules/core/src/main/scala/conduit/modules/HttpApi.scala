@@ -50,7 +50,7 @@ final class HttpApi[F[_]: Concurrent: Timer] private (
 
   // Optionally secured routes
   private val articlesRoutes =
-    new ArticlesRoutes[F](algebras.articles).routes(optionUsersMiddleware)
+    new ArticlesRoutes[F](algebras.articles, algebras.comments).routes(optionUsersMiddleware)
 
   // Combining all the http routes
   private val routes: HttpRoutes[F] =

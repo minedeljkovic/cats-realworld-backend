@@ -8,7 +8,9 @@ import org.http4s.dsl.Http4sDsl
 import org.http4s.server._
 import org.http4s.server.Router
 import conduit.algebras.Articles
+import conduit.algebras.Comments
 import conduit.domain.article._
+import conduit.domain.comment._
 import conduit.domain.user._
 import conduit.effects._
 import conduit.http.json._
@@ -16,7 +18,8 @@ import conduit.http.params._
 import conduit.ext.skunkx._
 
 final class ArticlesRoutes[F[_]: Defer: JsonDecoder: MonadThrow](
-    articles: Articles[F]
+    articles: Articles[F],
+    comments: Comments[F]
 ) extends Http4sDsl[F] {
 
   private[routes] val prefixPath = "/articles"
@@ -129,6 +132,41 @@ final class ArticlesRoutes[F[_]: Defer: JsonDecoder: MonadThrow](
           .flatMap {
             case Some(article) => Ok(ArticleResponse(article))
             case None          => NotFound(s"Article not found for slug: $slug")
+          }
+      }
+
+    case ar @ POST -> Root / slug / "comments" as optUser =>
+      optUser.fold(Forbidden("not authenticated")) { user =>
+        ar.req
+          .asJsonDecode[CreateCommentRequest]
+          .flatMap {
+            case CreateCommentRequest(comment) =>
+              comments
+                .create(user.id)(Slug(slug))(comment.toBody)
+                .flatMap {
+                  case Some(comment) => Ok(CommentResponse(comment))
+                  case None          => NotFound(s"Article not found for slug: $slug")
+                }
+          }
+      }
+
+    case GET -> Root / slug / "comments" as optUser =>
+      comments
+        .find(optUser.map(_.id))(Slug(slug))
+        .flatMap { comments =>
+          Ok(CommentsResponse(comments))
+        }
+
+    case DELETE -> Root / slug / "comments" / IntVar(id) as optUser =>
+      optUser.fold(Forbidden("not authenticated")) { user =>
+        comments
+          .delete(user.id)(Slug(slug), CommentId(id))
+          .flatMap {
+            case Some(unit) => Ok(unit)
+            case None       => NotFound(s"Comment with id: $id not found for slug: $slug")
+          }
+          .recoverWith {
+            case _: CurrentUserNotCommentAuthor => Forbidden("not author")
           }
       }
 
