@@ -42,6 +42,7 @@ final class HttpApi[F[_]: Concurrent: Timer] private (
 
   // Open routes
   private val healthRoutes = new HealthRoutes[F](algebras.healthCheck).routes
+  private val tagRoutes    = new TagRoutes[F](algebras.tags).routes
 
   // Secured routes
   private val userRoutes     = new UserRoutes[F](security.auth).routes(usersMiddleware)
@@ -53,7 +54,7 @@ final class HttpApi[F[_]: Concurrent: Timer] private (
 
   // Combining all the http routes
   private val routes: HttpRoutes[F] =
-    healthRoutes <+> loginRoutes <+> usersRoutes <+> userRoutes <+> profilesRoutes <+> articlesRoutes
+    healthRoutes <+> tagRoutes <+> loginRoutes <+> usersRoutes <+> userRoutes <+> profilesRoutes <+> articlesRoutes
 
   private val middleware: HttpRoutes[F] => HttpRoutes[F] = {
     { http: HttpRoutes[F] =>

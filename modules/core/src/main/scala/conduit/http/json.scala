@@ -13,6 +13,7 @@ import conduit.domain.article._
 import conduit.domain.user._
 import conduit.domain.profile._
 import conduit.domain.healthcheck._
+import conduit.domain.tag._
 
 object json extends JsonCodecs {
   implicit def deriveEntityEncoder[F[_]: Applicative, A: Encoder]: EntityEncoder[F, A] = jsonEncoderOf[F, A]
@@ -69,5 +70,7 @@ private[http] trait JsonCodecs {
 
   implicit val updateArticleParamDecoder: Decoder[UpdateArticleParam]     = deriveDecoder[UpdateArticleParam]
   implicit val updateArticleRequestDecoder: Decoder[UpdateArticleRequest] = deriveDecoder[UpdateArticleRequest]
+
+  implicit val tagsResponseEncoder: Encoder[TagsResponse] = deriveEncoder[TagsResponse]
 
 }

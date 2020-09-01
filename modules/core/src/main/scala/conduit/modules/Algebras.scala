@@ -16,11 +16,13 @@ object Algebras {
       health <- LiveHealthCheck.make[F](sessionPool, redis)
       profiles <- LiveProfiles.make[F](sessionPool)
       articles <- LiveArticles.make[F](sessionPool)
-    } yield new Algebras[F](health, profiles, articles)
+      tags <- LiveTags.make[F](sessionPool)
+    } yield new Algebras[F](health, profiles, articles, tags)
 }
 
 final class Algebras[F[_]] private (
     val healthCheck: HealthCheck[F],
     val profiles: Profiles[F],
-    val articles: Articles[F]
+    val articles: Articles[F],
+    val tags: Tags[F]
 )

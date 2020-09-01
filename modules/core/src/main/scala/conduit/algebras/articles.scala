@@ -5,6 +5,7 @@ import cats.implicits._
 import conduit.domain.article._
 import conduit.domain.profile._
 import conduit.domain.user._
+import conduit.domain.tag._
 import conduit.ext.skunkx._
 import fs2._
 import scala.concurrent.duration.MILLISECONDS
@@ -12,7 +13,6 @@ import skunk._
 import skunk.codec.all._
 import skunk.data.Completion
 import skunk.implicits._
-import conduit.domain.user.UserId
 import java.time.OffsetDateTime
 import java.time.Instant
 import java.time.ZoneOffset

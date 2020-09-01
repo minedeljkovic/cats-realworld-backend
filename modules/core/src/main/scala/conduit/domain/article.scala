@@ -7,6 +7,7 @@ import scala.util.control.NoStackTrace
 import java.time.OffsetDateTime
 import conduit.domain.user._
 import conduit.domain.profile._
+import conduit.domain.tag._
 import cats.data.NonEmptyList
 import cats.kernel.Eq
 
@@ -25,8 +26,6 @@ object article {
 
   @newtype case class UpdateDateTime(value: OffsetDateTime)
   implicit val eqUpdateDateTime = Eq.fromUniversalEquals[UpdateDateTime]
-
-  @newtype case class ArticleTag(value: String)
 
   @newtype case class FavoritedStatus(value: Boolean)
   implicit val eqFavoritedStatus = Eq.fromUniversalEquals[FavoritedStatus]
