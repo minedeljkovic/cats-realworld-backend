@@ -112,6 +112,26 @@ final class ArticlesRoutes[F[_]: Defer: JsonDecoder: MonadThrow](
           }
       }
 
+    case POST -> Root / slug / "favorite" as optUser =>
+      optUser.fold(Forbidden("not authenticated")) { user =>
+        articles
+          .favorite(user.id)(Slug(slug))
+          .flatMap {
+            case Some(article) => Ok(ArticleResponse(article))
+            case None          => NotFound(s"Article not found for slug: $slug")
+          }
+      }
+
+    case DELETE -> Root / slug / "favorite" as optUser =>
+      optUser.fold(Forbidden("not authenticated")) { user =>
+        articles
+          .unfavorite(user.id)(Slug(slug))
+          .flatMap {
+            case Some(article) => Ok(ArticleResponse(article))
+            case None          => NotFound(s"Article not found for slug: $slug")
+          }
+      }
+
   }
 
   def routes(authMiddleware: AuthMiddleware[F, Option[User]]): HttpRoutes[F] = Router(

@@ -28,6 +28,8 @@ trait Articles[F[_]] {
       offset: Option[Offset]
   ): F[(List[Article], ArticlesCount)]
   def update(userId: UserId)(slug: Slug)(article: UpdateArticle): F[Option[Article]]
+  def favorite(userId: UserId)(slug: Slug): F[Option[Article]]
+  def unfavorite(userId: UserId)(slug: Slug): F[Option[Article]]
 }
 
 object LiveArticles {
@@ -44,47 +46,10 @@ final class LiveArticles[F[_]: Sync: GenUUID: Clock] private (
 ) extends Articles[F] {
   import ArticleQueries._
 
-  private def joinedToList(s: Stream[F, (SelectArticleResult, Option[ArticleTag])]): F[List[Article]] =
-    s.groupAdjacentBy(_._1)
-      .map {
-        case (
-            uuid ~ slug ~ title ~ description ~ body ~ createdAt ~ updatedAt ~ favorited ~ favoritesCount ~ userId ~ username ~ bio ~ image ~ following,
-            tags
-            ) =>
-          Article(
-            uuid,
-            slug,
-            title,
-            description,
-            body,
-            tags.collect { case (_, Some(tag)) => tag }.toList,
-            createdAt,
-            updatedAt,
-            favorited,
-            favoritesCount,
-            Author(
-              userId,
-              username,
-              bio,
-              image,
-              following
-            )
-          )
-      }
-      .compile
-      .toList
-
   def find(userId: Option[UserId])(slug: Slug): F[Option[Article]] =
     sessionPool.use { session =>
-      session.prepare(selectArticleBySlug).use { q =>
-        joinedToList(q.stream(userId ~ slug, 64)).map(_.headOption)
-      }
+      session.prepare(selectArticleBySlug).use(optionArticle(_)(userId ~ slug))
     }
-
-  private val now: F[OffsetDateTime] =
-    Clock[F]
-      .realTime(MILLISECONDS)
-      .map(epochMilli => OffsetDateTime.ofInstant(Instant.ofEpochMilli(epochMilli), ZoneOffset.UTC))
 
   def create(userId: UserId)(article: NewArticle, tagList: List[ArticleTag]): F[Article] =
     GenUUID[F].make[ArticleId].flatMap { id =>
@@ -150,7 +115,8 @@ final class LiveArticles[F[_]: Sync: GenUUID: Clock] private (
               } yield Some(())
             case Some(_ ~ authorId) =>
               CurrentUserNotAuthor(authorId).raiseError[F, Option[Unit]]
-            case None => none[Unit].pure[F]
+            case None =>
+              none[Unit].pure[F]
           }
       }
     }
@@ -164,7 +130,7 @@ final class LiveArticles[F[_]: Sync: GenUUID: Clock] private (
       ).tupled.use {
         case (query, countQuery) =>
           for {
-            list <- joinedToList(query.stream(userId ~ limit ~ offset, 64))
+            list <- listArticle(query)(userId ~ limit ~ offset)
             count <- countQuery.unique(userId)
           } yield (list, count)
       }
@@ -183,7 +149,7 @@ final class LiveArticles[F[_]: Sync: GenUUID: Clock] private (
       ).tupled.use {
         case (query, countQuery) =>
           for {
-            list <- joinedToList(query.stream(userId ~ criteria ~ limit ~ offset, 64))
+            list <- listArticle(query)(userId ~ criteria ~ limit ~ offset)
             count <- countQuery.unique(criteria)
           } yield (list, count)
       }
@@ -196,7 +162,7 @@ final class LiveArticles[F[_]: Sync: GenUUID: Clock] private (
         session.prepare(updateArticle)
       ).tupled.use {
         case (selectArticleQuery, updateArticleCmd) =>
-          joinedToList(selectArticleQuery.stream(Some(userId) ~ slug, 64)).map(_.headOption).flatMap {
+          optionArticle(selectArticleQuery)(Some(userId) ~ slug).flatMap {
             case Some(article) if article.author.uuid == userId =>
               for {
                 nowDateTime <- now
@@ -221,10 +187,106 @@ final class LiveArticles[F[_]: Sync: GenUUID: Clock] private (
               )
             case Some(article) =>
               CurrentUserNotAuthor(article.author.uuid).raiseError[F, Option[Article]]
-            case None => none[Article].pure[F]
+            case None =>
+              none[Article].pure[F]
           }
       }
     }
+
+  def favorite(userId: UserId)(slug: Slug): F[Option[Article]] =
+    sessionPool.use { session =>
+      (
+        session.prepare(selectArticleBySlug),
+        session.prepare(insertFavorite)
+      ).tupled.use {
+        case (selectArticleQuery, insertFavoriteCmd) =>
+          optionArticle(selectArticleQuery)(Some(userId) ~ slug).map(_.headOption).flatMap {
+            case Some(article) =>
+              if (!article.favorited.value)
+                insertFavoriteCmd.execute(article.uuid ~ userId) *>
+                  article
+                    .copy(
+                      favorited = FavoritedStatus(true),
+                      favoritesCount = FavoritesCount(article.favoritesCount.value + 1)
+                    )
+                    .some
+                    .pure[F]
+              else
+                article.some.pure[F]
+            case None =>
+              none[Article].pure[F]
+          }
+      }
+    }
+
+  def unfavorite(userId: UserId)(slug: Slug): F[Option[Article]] =
+    sessionPool.use { session =>
+      (
+        session.prepare(selectArticleBySlug),
+        session.prepare(deleteFavorite)
+      ).tupled.use {
+        case (selectArticleQuery, deleteFavoriteCmd) =>
+          optionArticle(selectArticleQuery)(Some(userId) ~ slug).map(_.headOption).flatMap {
+            case Some(article) =>
+              if (article.favorited.value)
+                deleteFavoriteCmd.execute(article.uuid ~ userId) *>
+                  article
+                    .copy(
+                      favorited = FavoritedStatus(false),
+                      favoritesCount = FavoritesCount(article.favoritesCount.value - 1)
+                    )
+                    .some
+                    .pure[F]
+              else
+                article.some.pure[F]
+            case None =>
+              none[Article].pure[F]
+          }
+      }
+    }
+
+  private def grouped(s: Stream[F, (SelectArticleResult, Option[ArticleTag])]): Stream[F, Article] =
+    s.groupAdjacentBy(_._1)
+      .map {
+        case (
+            uuid ~ slug ~ title ~ description ~ body ~ createdAt ~ updatedAt ~ favorited ~ favoritesCount ~ userId ~ username ~ bio ~ image ~ following,
+            tags
+            ) =>
+          Article(
+            uuid,
+            slug,
+            title,
+            description,
+            body,
+            tags.collect { case (_, Some(tag)) => tag }.toList,
+            createdAt,
+            updatedAt,
+            favorited,
+            favoritesCount,
+            Author(
+              userId,
+              username,
+              bio,
+              image,
+              following
+            )
+          )
+      }
+
+  private def listArticle[A](
+      query: PreparedQuery[F, A, SelectArticleResult ~ Option[ArticleTag]]
+  )(input: A): F[List[Article]] =
+    grouped(query.stream(input, 64)).compile.toList
+
+  private def optionArticle[A](
+      query: PreparedQuery[F, A, SelectArticleResult ~ Option[ArticleTag]]
+  )(input: A): F[Option[Article]] =
+    grouped(query.stream(input, 64)).compile.toList.map(_.headOption)
+
+  private val now: F[OffsetDateTime] =
+    Clock[F]
+      .realTime(MILLISECONDS)
+      .map(epochMilli => OffsetDateTime.ofInstant(Instant.ofEpochMilli(epochMilli), ZoneOffset.UTC))
 
 }
 
@@ -432,4 +494,18 @@ private object ArticleQueries {
             updated_at     = coalesce(${timestamptz(3).cimap[UpdateDateTime].opt}, a.updated_at)
         WHERE uuid = ${uuid.cimap[ArticleId]}
        """.command
+
+  val insertFavorite: Command[ArticleId ~ UserId] =
+    sql"""
+        INSERT INTO favorites (article_id, user_id)
+        VALUES (${uuid.cimap[ArticleId]}, ${uuid.cimap[UserId]})
+       """.command
+
+  val deleteFavorite: Command[ArticleId ~ UserId] =
+    sql"""
+        DELETE FROM favorites
+        WHERE article_id = ${uuid.cimap[ArticleId]}
+          AND user_id    = ${uuid.cimap[UserId]}
+       """.command
+
 }
