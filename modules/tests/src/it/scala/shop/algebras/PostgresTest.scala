@@ -33,18 +33,27 @@ class PostgresTest extends ResourceSuite[Resource[IO, Session[IO]]] {
 
   withResources { pool =>
     test("Users") {
-      forAll(MaxTests) { (username: UserName, email: Email, password: Password) =>
-        IOAssertion {
-          for {
-            c <- LiveCrypto.make[IO](salt)
-            u <- LiveUsers.make[IO](pool, c)
-            d <- u.create(username, email, password)
-            x <- u.find(email, password)
-            y <- u.find(email, "foo".coerce[Password])
-            z <- u.create(username, email, password).attempt
-          } yield assert(
-            x.count(_.id === d) === 1 && y.isEmpty && z.isLeft
-          )
+      forAll(MaxTests) { gens: (UserName, Email, UserName, Email, Password, Password, Image, Bio) =>
+        {
+          val (un1, em1, un2, em2, pw1, pw2, img, bio) = gens
+          IOAssertion {
+            for {
+              c <- LiveCrypto.make[IO](salt)
+              u <- LiveUsers.make[IO](pool, c)
+              d <- u.create(un1, em1, pw1)
+              x <- u.find(em1, pw1)
+              y <- u.find(em1, "foo".coerce[Password])
+              z <- u.create(un1, em2, pw1).attempt
+              v <- u.create(un2, em1, pw1).attempt
+              _ <- u.update(d, Some(em2), Some(un2), Some(pw2), Some(img), Some(bio))
+              w <- u.find(em2, pw2)
+            } yield assert(
+              x.count(_.id === d) === 1 && y.isEmpty && z.isLeft && v.isLeft &&
+              w.count { u =>
+                u.username === un2 && u.image === Some(img) && u.bio === Some(bio)
+              } === 1
+            )
+          }
         }
       }
     }
