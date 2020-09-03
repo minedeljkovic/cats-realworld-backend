@@ -1,11 +1,10 @@
 package conduit
 
 import conduit.domain.article._
+import conduit.generators._
 import io.estatico.newtype.Coercible
 import java.util.UUID
 import org.scalacheck.Arbitrary
-import conduit.generators._
-import squants.market.Money
 
 object arbitraries {
 
@@ -23,9 +22,6 @@ object arbitraries {
 
   implicit def arbCoercibleBoolean[A: Coercible[Boolean, *]]: Arbitrary[A] =
     Arbitrary(cbBoolean[A])
-
-  implicit val arbMoney: Arbitrary[Money] =
-    Arbitrary(genMoney)
 
   implicit val arbAuthor: Arbitrary[Author] =
     Arbitrary(authorGen)

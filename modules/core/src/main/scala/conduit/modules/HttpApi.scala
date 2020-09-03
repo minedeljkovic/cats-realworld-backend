@@ -2,16 +2,16 @@ package conduit.modules
 
 import cats.effect._
 import cats.implicits._
+import conduit.domain.user._
+import conduit.ext.OptionalJwtAuthMiddleware
+import conduit.http.routes._
+import conduit.http.routes.secured._
+import conduit.http.routes.optsecured._
 import dev.profunktor.auth.JwtAuthMiddleware
 import org.http4s._
 import org.http4s.implicits._
 import org.http4s.server.middleware._
 import scala.concurrent.duration._
-import conduit.domain.user._
-import conduit.http.routes._
-import conduit.http.routes.secured._
-import conduit.http.routes.optsecured._
-import conduit.ext.OptionalJwtAuthMiddleware
 
 object HttpApi {
   def make[F[_]: Concurrent: Timer](

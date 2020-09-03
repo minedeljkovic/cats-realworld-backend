@@ -3,15 +3,15 @@ package conduit.algebras
 import cats.effect._
 import cats.implicits.{ catsSyntaxEq => _, _ }
 import ciris._
+import conduit.arbitraries._
+import conduit.config.data.PasswordSalt
+import conduit.domain._
+import conduit.domain.user._
 import eu.timepit.refined.auto._
 import eu.timepit.refined.cats._
 import eu.timepit.refined.types.string.NonEmptyString
 import io.estatico.newtype.ops._
 import natchez.Trace.Implicits.noop // needed for skunk
-import conduit.arbitraries._
-import conduit.config.data.PasswordSalt
-import conduit.domain._
-import conduit.domain.user._
 import skunk._
 import suite._
 

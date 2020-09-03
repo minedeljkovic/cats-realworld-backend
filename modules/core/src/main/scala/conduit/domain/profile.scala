@@ -1,8 +1,8 @@
 package conduit.domain
 
 import cats.kernel.Eq
-import io.estatico.newtype.macros.newtype
 import conduit.domain.user._
+import io.estatico.newtype.macros.newtype
 
 object profile {
 

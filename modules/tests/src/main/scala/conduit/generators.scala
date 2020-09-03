@@ -2,16 +2,13 @@ package conduit
 
 import conduit.domain.article._
 import conduit.domain.profile._
-import conduit.domain.user._
 import conduit.domain.tag._
+import conduit.domain.user._
 import io.estatico.newtype.ops._
 import io.estatico.newtype.Coercible
 import java.util.UUID
 import java.time._
 import org.scalacheck.Gen
-import squants.market._
-import conduit.domain.user.UserId
-import conduit.domain.user.UserName
 
 object generators {
 
@@ -29,9 +26,6 @@ object generators {
 
   def cbBoolean[A: Coercible[Boolean, *]]: Gen[A] =
     Gen.oneOf(true, false).map(_.coerce[A])
-
-  val genMoney: Gen[Money] =
-    Gen.posNum[Long].map(n => USD(BigDecimal(n)))
 
   val genNonEmptyString: Gen[String] =
     Gen

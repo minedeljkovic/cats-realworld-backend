@@ -1,11 +1,11 @@
 package conduit.http.routes
 
 import cats._
+import conduit.algebras.HealthCheck
+import conduit.http.json._
 import org.http4s._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.Router
-import conduit.algebras.HealthCheck
-import conduit.http.json._
 
 final class HealthRoutes[F[_]: Defer: Monad](
     healthCheck: HealthCheck[F]

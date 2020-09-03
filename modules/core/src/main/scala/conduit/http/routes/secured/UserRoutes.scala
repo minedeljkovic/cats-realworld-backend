@@ -2,17 +2,16 @@ package conduit.http.routes.secured
 
 import cats._
 import cats.implicits._
+import conduit.algebras.Auth
+import conduit.domain.user._
+import conduit.http.json._
 import org.http4s._
 import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server._
 import org.http4s.server.Router
-import conduit.algebras.Auth
-import conduit.domain.user._
-import conduit.effects._
-import conduit.http.json._
 
-final class UserRoutes[F[_]: Defer: JsonDecoder: MonadThrow](
+final class UserRoutes[F[_]: Defer: JsonDecoder: Monad](
     auth: Auth[F]
 ) extends Http4sDsl[F] {
 

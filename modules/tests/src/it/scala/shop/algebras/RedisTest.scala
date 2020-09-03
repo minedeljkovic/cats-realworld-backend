@@ -4,6 +4,12 @@ import cats.Eq
 import cats.effect._
 import cats.implicits.{ catsSyntaxEq => _, _ }
 import ciris.Secret
+import conduit.arbitraries._
+import conduit.config.data._
+import conduit.domain._
+import conduit.domain.user._
+import conduit.logger.NoOp
+import conduit.http.auth.users._
 import dev.profunktor.auth.jwt._
 import dev.profunktor.redis4cats.{ Redis, RedisCommands }
 import dev.profunktor.redis4cats.log4cats._
@@ -13,12 +19,6 @@ import eu.timepit.refined.types.string.NonEmptyString
 import java.util.UUID
 import pdi.jwt._
 import scala.concurrent.duration._
-import conduit.arbitraries._
-import conduit.config.data._
-import conduit.domain._
-import conduit.domain.user._
-import conduit.logger.NoOp
-import conduit.http.auth.users._
 import suite._
 
 class RedisTest extends ResourceSuite[RedisCommands[IO, String, String]] {

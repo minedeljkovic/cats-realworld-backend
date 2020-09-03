@@ -17,7 +17,7 @@ import java.time.ZoneOffset
 
 trait Comments[F[_]] {
   def find(userId: Option[UserId])(slug: Slug): F[List[Comment]]
-  def create(userId: UserId)(slug: Slug)(body: Body): F[Option[Comment]]
+  def create(userId: UserId)(slug: Slug)(body: CommentBody): F[Option[Comment]]
   def delete(userId: UserId)(slug: Slug, id: CommentId): F[Option[Unit]]
 }
 
@@ -40,7 +40,7 @@ final class LiveComments[F[_]: Sync: Clock] private (
       session.prepare(selectCommentsBySlug).use(_.stream(userId ~ slug, 64).compile.toList)
     }
 
-  def create(userId: UserId)(slug: Slug)(body: Body): F[Option[Comment]] =
+  def create(userId: UserId)(slug: Slug)(body: CommentBody): F[Option[Comment]] =
     now.flatMap { nowDateTime =>
       sessionPool.use { session =>
         (
@@ -53,8 +53,8 @@ final class LiveComments[F[_]: Sync: Clock] private (
               .option(slug)
               .flatMap {
                 case Some(articleId ~ id) =>
-                  val createdAt = CreateDateTime(nowDateTime)
-                  val updatedAt = UpdateDateTime(nowDateTime)
+                  val createdAt = CommentCreateDateTime(nowDateTime)
+                  val updatedAt = CommentUpdateDateTime(nowDateTime)
 
                   for {
                     _ <- insertCmd.execute(articleId ~ id ~ body ~ userId ~ createdAt ~ updatedAt)
@@ -114,8 +114,8 @@ private object CommentQueries {
        """.query(varchar.cimap[UserName] ~ varchar.cimap[Bio].opt ~ varchar.cimap[Image].opt)
 
   private val commentDecoder: Decoder[Comment] =
-    (int4.cimap[CommentId] ~ varchar.cimap[Body] ~
-        timestamptz(3).cimap[CreateDateTime] ~ timestamptz(3).cimap[UpdateDateTime] ~
+    (int4.cimap[CommentId] ~ varchar.cimap[CommentBody] ~
+        timestamptz(3).cimap[CommentCreateDateTime] ~ timestamptz(3).cimap[CommentUpdateDateTime] ~
         uuid.cimap[UserId] ~ varchar.cimap[UserName] ~ varchar.cimap[Bio].opt ~ varchar.cimap[Image].opt ~
         bool.cimap[FollowingStatus]).map {
       case id ~ b ~ cr ~ up ~ uid ~ un ~ bi ~ im ~ fl =>
@@ -157,11 +157,13 @@ private object CommentQueries {
         GROUP BY a.uuid
       """.query(uuid.cimap[ArticleId] ~ int4.cimap[CommentId])
 
-  val insertComment: Command[ArticleId ~ CommentId ~ Body ~ UserId ~ CreateDateTime ~ UpdateDateTime] =
+  val insertComment
+      : Command[ArticleId ~ CommentId ~ CommentBody ~ UserId ~ CommentCreateDateTime ~ CommentUpdateDateTime] =
     sql"""
         INSERT INTO comments (article_id, id, body, author_id, created_at, updated_at)
-        VALUES (${uuid.cimap[ArticleId]}, ${int4.cimap[CommentId]}, ${varchar.cimap[Body]},
-          ${uuid.cimap[UserId]}, ${timestamptz(3).cimap[CreateDateTime]}, ${timestamptz(3).cimap[UpdateDateTime]})
+        VALUES (${uuid.cimap[ArticleId]}, ${int4.cimap[CommentId]}, ${varchar.cimap[CommentBody]},
+          ${uuid.cimap[UserId]}, ${timestamptz(3).cimap[CommentCreateDateTime]}, ${timestamptz(3)
+      .cimap[CommentUpdateDateTime]})
        """.command
 
   val selectArticleIdAndAuthorId: Query[Slug ~ CommentId, ArticleId ~ UserId] =

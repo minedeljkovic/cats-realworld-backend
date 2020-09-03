@@ -1,6 +1,12 @@
 package conduit.http
 
 import cats.Applicative
+import conduit.domain.article._
+import conduit.domain.comment._
+import conduit.domain.healthcheck._
+import conduit.domain.profile._
+import conduit.domain.tag._
+import conduit.domain.user._
 import dev.profunktor.auth.jwt.JwtToken
 import io.circe._
 import io.circe.generic.semiauto._
@@ -9,12 +15,6 @@ import io.estatico.newtype.Coercible
 import io.estatico.newtype.ops._
 import org.http4s.EntityEncoder
 import org.http4s.circe.jsonEncoderOf
-import conduit.domain.article._
-import conduit.domain.user._
-import conduit.domain.profile._
-import conduit.domain.healthcheck._
-import conduit.domain.tag._
-import conduit.domain.comment._
 
 object json extends JsonCodecs {
   implicit def deriveEntityEncoder[F[_]: Applicative, A: Encoder]: EntityEncoder[F, A] = jsonEncoderOf[F, A]

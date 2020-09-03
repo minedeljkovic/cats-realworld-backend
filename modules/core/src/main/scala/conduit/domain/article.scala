@@ -1,15 +1,15 @@
 package conduit.domain
 
-import eu.timepit.refined.types.string.NonEmptyString
-import io.estatico.newtype.macros.newtype
-import java.util.UUID
-import scala.util.control.NoStackTrace
-import java.time.OffsetDateTime
-import conduit.domain.user._
-import conduit.domain.profile._
-import conduit.domain.tag._
 import cats.data.NonEmptyList
 import cats.kernel.Eq
+import conduit.domain.profile._
+import conduit.domain.tag._
+import conduit.domain.user._
+import eu.timepit.refined.types.string.NonEmptyString
+import io.estatico.newtype.macros.newtype
+import java.time.OffsetDateTime
+import java.util.UUID
+import scala.util.control.NoStackTrace
 
 object article {
 

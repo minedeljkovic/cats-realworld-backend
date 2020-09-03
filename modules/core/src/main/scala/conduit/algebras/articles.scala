@@ -4,18 +4,18 @@ import cats.effect._
 import cats.implicits._
 import conduit.domain.article._
 import conduit.domain.profile._
-import conduit.domain.user._
 import conduit.domain.tag._
+import conduit.domain.user._
 import conduit.ext.skunkx._
 import fs2._
+import java.time.OffsetDateTime
+import java.time.Instant
+import java.time.ZoneOffset
 import scala.concurrent.duration.MILLISECONDS
 import skunk._
 import skunk.codec.all._
 import skunk.data.Completion
 import skunk.implicits._
-import java.time.OffsetDateTime
-import java.time.Instant
-import java.time.ZoneOffset
 
 trait Articles[F[_]] {
   def find(userId: Option[UserId])(slug: Slug): F[Option[Article]]
@@ -41,7 +41,7 @@ object LiveArticles {
     )
 }
 
-final class LiveArticles[F[_]: Sync: GenUUID: Clock] private (
+final class LiveArticles[F[_]: Sync: Clock] private (
     sessionPool: Resource[F, Session[F]]
 ) extends Articles[F] {
   import ArticleQueries._

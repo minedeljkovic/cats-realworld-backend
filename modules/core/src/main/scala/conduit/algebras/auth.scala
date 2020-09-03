@@ -2,15 +2,15 @@ package conduit.algebras
 
 import cats.effect.Sync
 import cats.implicits._
+import conduit.config.data.TokenExpiration
+import conduit.domain.user._
+import conduit.effects._
+import conduit.http.json._
 import dev.profunktor.auth.jwt.JwtToken
 import dev.profunktor.redis4cats.RedisCommands
 import io.circe.syntax._
 import io.circe.parser.decode
 import pdi.jwt.JwtClaim
-import conduit.config.data.TokenExpiration
-import conduit.domain.user._
-import conduit.effects._
-import conduit.http.json._ // TODO: I don't like this dependency
 
 trait Auth[F[_]] {
   def login(email: Email, password: Password): F[User]
@@ -37,7 +37,7 @@ object LiveAuth {
     )
 }
 
-final class LiveAuth[F[_]: GenUUID: MonadThrow] private (
+final class LiveAuth[F[_]: MonadThrow] private (
     tokenExpiration: TokenExpiration,
     tokens: Tokens[F],
     users: Users[F],

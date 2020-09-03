@@ -4,13 +4,13 @@ import cats.effect._
 import cats.implicits._
 import ciris._
 import ciris.refined._
+import conduit.config.data._
 import environments._
 import environments.AppEnvironment._
 import eu.timepit.refined.auto._
 import eu.timepit.refined.cats._
 import eu.timepit.refined.types.string.NonEmptyString
 import scala.concurrent.duration._
-import conduit.config.data._
 
 object load {
 

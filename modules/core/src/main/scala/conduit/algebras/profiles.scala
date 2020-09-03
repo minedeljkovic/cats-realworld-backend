@@ -2,8 +2,8 @@ package conduit.algebras
 
 import cats.effect._
 import cats.implicits._
-import conduit.domain.user._
 import conduit.domain.profile._
+import conduit.domain.user._
 import conduit.effects._
 import conduit.ext.skunkx._
 import skunk._
@@ -25,7 +25,7 @@ object LiveProfiles {
     )
 }
 
-final class LiveProfiles[F[_]: BracketThrow: GenUUID] private (
+final class LiveProfiles[F[_]: BracketThrow] private (
     sessionPool: Resource[F, Session[F]]
 ) extends Profiles[F] {
   import ProfileQueries._

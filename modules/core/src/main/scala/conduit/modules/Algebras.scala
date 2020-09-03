@@ -3,8 +3,8 @@ package conduit.modules
 import cats.Parallel
 import cats.effect._
 import cats.implicits._
-import dev.profunktor.redis4cats.RedisCommands
 import conduit.algebras._
+import dev.profunktor.redis4cats.RedisCommands
 import skunk._
 
 object Algebras {

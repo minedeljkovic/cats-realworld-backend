@@ -1,11 +1,11 @@
 package conduit.http
 
 import cats.implicits._
+import conduit.effects._
 import io.circe.Decoder
 import org.http4s._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.circe._
-import conduit.effects._
 
 object decoder {
 

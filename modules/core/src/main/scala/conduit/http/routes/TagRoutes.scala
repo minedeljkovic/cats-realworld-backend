@@ -2,12 +2,12 @@ package conduit.http.routes
 
 import cats._
 import cats.implicits._
-import org.http4s._
-import org.http4s.dsl.Http4sDsl
-import org.http4s.server.Router
 import conduit.algebras.Tags
 import conduit.domain.tag._
 import conduit.http.json._
+import org.http4s._
+import org.http4s.dsl.Http4sDsl
+import org.http4s.server.Router
 
 final class TagRoutes[F[_]: Defer: Monad](
     tags: Tags[F]

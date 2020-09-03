@@ -1,23 +1,23 @@
 package conduit.domain
 
+import cats.kernel.Eq
+import conduit.domain.profile._
+import conduit.domain.user._
 import eu.timepit.refined.types.string.NonEmptyString
 import io.estatico.newtype.macros.newtype
-import scala.util.control.NoStackTrace
 import java.time.OffsetDateTime
-import conduit.domain.user._
-import conduit.domain.profile._
-import cats.kernel.Eq
+import scala.util.control.NoStackTrace
 
 object comment {
 
   @newtype case class CommentId(value: Int)
-  @newtype case class Body(value: String)
+  @newtype case class CommentBody(value: String)
 
-  @newtype case class CreateDateTime(value: OffsetDateTime)
-  implicit val eqCreateDateTime = Eq.fromUniversalEquals[CreateDateTime]
+  @newtype case class CommentCreateDateTime(value: OffsetDateTime)
+  implicit val eqCreateDateTime = Eq.fromUniversalEquals[CommentCreateDateTime]
 
-  @newtype case class UpdateDateTime(value: OffsetDateTime)
-  implicit val eqUpdateDateTime = Eq.fromUniversalEquals[UpdateDateTime]
+  @newtype case class CommentUpdateDateTime(value: OffsetDateTime)
+  implicit val eqUpdateDateTime = Eq.fromUniversalEquals[CommentUpdateDateTime]
 
   case class CommentAuthor(
       uuid: UserId,
@@ -29,9 +29,9 @@ object comment {
 
   case class Comment(
       id: CommentId,
-      body: Body,
-      createdAt: CreateDateTime,
-      updatedAt: UpdateDateTime,
+      body: CommentBody,
+      createdAt: CommentCreateDateTime,
+      updatedAt: CommentUpdateDateTime,
       author: CommentAuthor
   )
   case class CommentResponse(comment: Comment)
@@ -39,13 +39,13 @@ object comment {
 
   // --------- create comment -----------
 
-  @newtype case class BodyParam(value: NonEmptyString)
+  @newtype case class CommentBodyParam(value: NonEmptyString)
 
   case class CreateCommentParam(
-      body: BodyParam
+      body: CommentBodyParam
   ) {
-    def toBody: Body =
-      Body(body.value.value)
+    def toBody: CommentBody =
+      CommentBody(body.value.value)
   }
   case class CreateCommentRequest(comment: CreateCommentParam)
 

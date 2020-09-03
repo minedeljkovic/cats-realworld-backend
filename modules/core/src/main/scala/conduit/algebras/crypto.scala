@@ -2,10 +2,10 @@ package conduit.algebras
 
 import cats.effect.Sync
 import cats.implicits._
-import javax.crypto.spec.{ PBEKeySpec, SecretKeySpec }
-import javax.crypto.{ Cipher, SecretKeyFactory }
 import conduit.config.data.PasswordSalt
 import conduit.domain.user._
+import javax.crypto.spec.{ PBEKeySpec, SecretKeySpec }
+import javax.crypto.{ Cipher, SecretKeyFactory }
 
 trait Crypto {
   def encrypt(value: Password): EncryptedPassword

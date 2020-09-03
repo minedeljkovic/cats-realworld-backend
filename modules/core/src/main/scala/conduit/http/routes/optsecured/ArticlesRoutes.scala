@@ -2,20 +2,20 @@ package conduit.http.routes.optsecured
 
 import cats._
 import cats.implicits._
-import org.http4s._
-import org.http4s.circe._
-import org.http4s.dsl.Http4sDsl
-import org.http4s.server._
-import org.http4s.server.Router
 import conduit.algebras.Articles
 import conduit.algebras.Comments
 import conduit.domain.article._
 import conduit.domain.comment._
 import conduit.domain.user._
 import conduit.effects._
+import conduit.ext.skunkx._
 import conduit.http.json._
 import conduit.http.params._
-import conduit.ext.skunkx._
+import org.http4s._
+import org.http4s.circe._
+import org.http4s.dsl.Http4sDsl
+import org.http4s.server._
+import org.http4s.server.Router
 
 final class ArticlesRoutes[F[_]: Defer: JsonDecoder: MonadThrow](
     articles: Articles[F],

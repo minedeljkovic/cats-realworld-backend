@@ -3,13 +3,13 @@ package conduit.ext
 import cats.MonadError
 import cats.data.{ Kleisli, OptionT }
 import cats.implicits._
+import dev.profunktor.auth.AuthHeaders
+import dev.profunktor.auth.jwt._
 import org.http4s.{ AuthedRoutes, Request }
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.AuthMiddleware
 import pdi.jwt._
 import pdi.jwt.exceptions.JwtException
-import dev.profunktor.auth.AuthHeaders
-import dev.profunktor.auth.jwt._
 
 object OptionalJwtAuthMiddleware {
   def apply[F[_]: MonadError[*[_], Throwable], A](

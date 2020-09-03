@@ -18,7 +18,6 @@ object Dependencies {
     val refined       = "0.9.15"
     val redis4cats    = "0.10.2"
     val skunk         = "0.0.15"
-    val squants       = "1.6.0"
 
     val betterMonadicFor = "0.3.1"
     val kindProjector    = "0.11.0"
@@ -38,7 +37,6 @@ object Dependencies {
     val catsMeowMtl = "com.olegpy"       %% "meow-mtl-core" % Versions.catsMeowMtl
     val catsEffect  = "org.typelevel"    %% "cats-effect"   % Versions.catsEffect
     val catsRetry   = "com.github.cb372" %% "cats-retry"    % Versions.catsRetry
-    val squants     = "org.typelevel"    %% "squants"       % Versions.squants
     val fs2         = "co.fs2"           %% "fs2-core"      % Versions.fs2
 
     val circeCore    = circe("circe-core")

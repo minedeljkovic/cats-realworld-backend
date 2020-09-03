@@ -2,12 +2,12 @@ package conduit.modules
 
 import cats.effect._
 import cats.implicits._
-import dev.profunktor.auth.jwt._
-import dev.profunktor.redis4cats.RedisCommands
-import pdi.jwt._
 import conduit.algebras._
 import conduit.config.data._
 import conduit.http.auth.users._
+import dev.profunktor.auth.jwt._
+import dev.profunktor.redis4cats.RedisCommands
+import pdi.jwt._
 import skunk.Session
 
 object Security {

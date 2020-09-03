@@ -2,10 +2,10 @@ package conduit.algebras
 
 import cats.effect.Sync
 import cats.implicits._
+import conduit.effects._
 import io.estatico.newtype.Coercible
 import io.estatico.newtype.ops._
 import java.util.UUID
-import conduit.effects._
 
 trait GenUUID[F[_]] {
   def make: F[UUID]
