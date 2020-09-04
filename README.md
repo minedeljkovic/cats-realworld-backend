@@ -1,6 +1,8 @@
 RealWorld example
 =============
 
+![Build](https://github.com/minedeljkovic/cats-realworld-backend/workflows/Build/badge.svg)
+
 > Scala + Cats implementation of the [RealWorld](https://github.com/gothinkster/realworld) example [api](https://github.com/gothinkster/realworld/tree/master/api), heavily based on the architecture given in the book ["Practical FP in Scala: A hands-on approach"](https://leanpub.com/pfp-scala) and its [example repo](https://github.com/gvolpe/pfps-shopping-cart).
 
 Disclaimer: The project was primarily built for my personal hands-on experience with the architecture given in the book.
