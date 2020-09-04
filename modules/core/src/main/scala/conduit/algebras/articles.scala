@@ -111,7 +111,6 @@ final class LiveArticles[F[_]: Sync: Clock] private (
               for {
                 _ <- deleteArticleTagsCmd.execute(id)
                 _ <- deleteArticleCmd.execute(id)
-                // TODO: handle favorites and comments existence
               } yield Some(())
             case Some(_ ~ authorId) =>
               CurrentUserNotAuthor(authorId).raiseError[F, Option[Unit]]
@@ -201,9 +200,8 @@ final class LiveArticles[F[_]: Sync: Clock] private (
       ).tupled.use {
         case (selectArticleQuery, insertFavoriteCmd) =>
           optionArticle(selectArticleQuery)(Some(userId) ~ slug).map(_.headOption).flatMap {
-            case Some(article) =>
-              if (!article.favorited.value)
-                insertFavoriteCmd.execute(article.uuid ~ userId) *>
+            case Some(article) if !article.favorited.value =>
+              insertFavoriteCmd.execute(article.uuid ~ userId) *>
                   article
                     .copy(
                       favorited = FavoritedStatus(true),
@@ -211,8 +209,8 @@ final class LiveArticles[F[_]: Sync: Clock] private (
                     )
                     .some
                     .pure[F]
-              else
-                article.some.pure[F]
+            case Some(article) =>
+              article.some.pure[F]
             case None =>
               none[Article].pure[F]
           }
@@ -227,9 +225,8 @@ final class LiveArticles[F[_]: Sync: Clock] private (
       ).tupled.use {
         case (selectArticleQuery, deleteFavoriteCmd) =>
           optionArticle(selectArticleQuery)(Some(userId) ~ slug).map(_.headOption).flatMap {
-            case Some(article) =>
-              if (article.favorited.value)
-                deleteFavoriteCmd.execute(article.uuid ~ userId) *>
+            case Some(article) if article.favorited.value =>
+              deleteFavoriteCmd.execute(article.uuid ~ userId) *>
                   article
                     .copy(
                       favorited = FavoritedStatus(false),
@@ -237,8 +234,8 @@ final class LiveArticles[F[_]: Sync: Clock] private (
                     )
                     .some
                     .pure[F]
-              else
-                article.some.pure[F]
+            case Some(article) =>
+              article.some.pure[F]
             case None =>
               none[Article].pure[F]
           }
@@ -375,6 +372,7 @@ private object ArticleQueries {
     sql"""
         $selectCount
         FROM Articles a
+        JOIN users au on au.uuid = a.author_id
         WHERE $followedByUser
         """
       .query(int8.cimap[ArticlesCount])

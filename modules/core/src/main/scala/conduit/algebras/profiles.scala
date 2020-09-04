@@ -71,8 +71,8 @@ final class LiveProfiles[F[_]: BracketThrow] private (
 private object ProfileQueries {
 
   val profileDecoder: Decoder[UserId ~ Profile] =
-    (uuid.cimap[UserId] ~ varchar.cimap[UserName] ~ varchar.cimap[Bio].opt ~ varchar.cimap[Image].opt ~ bool
-          .cimap[FollowingStatus]).map {
+    (uuid.cimap[UserId] ~ varchar.cimap[UserName] ~ varchar.cimap[Bio].opt ~ varchar.cimap[Image].opt ~
+        bool.cimap[FollowingStatus]).map {
       case id ~ un ~ bi ~ im ~ f =>
         id ~ Profile(un, bi, im, f)
     }

@@ -70,10 +70,9 @@ final class ArticlesRoutes[F[_]: Defer: JsonDecoder: MonadThrow](
           .asJsonDecode[CreateArticleRequest]
           .flatMap {
             case CreateArticleRequest(createArticle) =>
-              val article = createArticle.toDomain.article
-              val tagList = createArticle.toDomain.tagList
+              val ca = createArticle.toDomain
               articles
-                .create(user.id)(article, tagList)
+                .create(user.id)(ca.article, ca.tagList)
                 .flatMap { article =>
                   Ok(ArticleResponse(article))
                 }

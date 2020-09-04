@@ -83,8 +83,8 @@ final class LiveUsers[F[_]: BracketThrow: GenUUID] private (
 private object UserQueries {
 
   val userDecoder: Decoder[UnauthenticatedUser ~ EncryptedPassword] =
-    (uuid.cimap[UserId] ~ varchar.cimap[UserName] ~ varchar.cimap[EncryptedPassword] ~ varchar
-          .cimap[Email] ~ varchar.cimap[Bio].opt ~ varchar.cimap[Image].opt).map {
+    (uuid.cimap[UserId] ~ varchar.cimap[UserName] ~ varchar.cimap[EncryptedPassword] ~
+        varchar.cimap[Email] ~ varchar.cimap[Bio].opt ~ varchar.cimap[Image].opt).map {
       case id ~ un ~ p ~ em ~ bi ~ im =>
         UnauthenticatedUser(id, em, un, bi, im) ~ p
     }
